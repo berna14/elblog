@@ -1,14 +1,22 @@
-const blogsRouter = require("express").Router();
-const Blog = require("../models/blog");
-const User = require("../models/user");
-const jwt = require("jsonwebtoken");
+const blogsRouter = require('express').Router();
+const Blog = require('../models/blog');
+const User = require('../models/user');
+const jwt = require('jsonwebtoken');
 
-blogsRouter.get("/", async (request, response) => {
-  const blogs = await Blog.find({}).populate("user", { username: 1, name: 1 });
+const getTokenFrom = (request) => {
+  const authorization = request.get('authorization');
+  if (authorization && authorization.toLowerCase().startsWith('bearer ')) {
+    return authorization.substring(7);
+  }
+  return null;
+};
+
+blogsRouter.get('/', async (request, response) => {
+  const blogs = await Blog.find({}).populate('user', { username: 1, name: 1 });
   response.json(blogs);
 });
 
-blogsRouter.get("/:id", (request, response, next) => {
+blogsRouter.get('/:id', (request, response, next) => {
   Blog.findById(request.params.id)
     .then((blog) => {
       if (blog) {
@@ -20,11 +28,12 @@ blogsRouter.get("/:id", (request, response, next) => {
     .catch((error) => next(error));
 });
 
-blogsRouter.post("/", async (request, response, next) => {
+blogsRouter.post('/', async (request, response, next) => {
   const body = request.body;
-  const decodedToken = jwt.verify(request.token, process.env.SECRET);
+  const token = getTokenFrom(request);
+  const decodedToken = jwt.verify(token, process.env.SECRET);
   if (!request.token || !decodedToken.id) {
-    return response.status(401).json({ error: "token invalid or missing. " });
+    return response.status(401).json({ error: 'token invalid or missing. ' });
   }
   const user = await User.findById(decodedToken.id);
 
@@ -42,21 +51,23 @@ blogsRouter.post("/", async (request, response, next) => {
   response.json(savedBlog);
 });
 
-blogsRouter.delete("/:id", async (request, response, next) => {
+blogsRouter.delete('/:id', async (request, response, next) => {
   const body = request.body;
   const { id } = request.params;
   const decodedToken = jwt.verify(request.token, process.env.SECRET);
   if (!request.token || !decodedToken.id) {
-    return response.status(401).json({ error: "token invalid or missing. " });
+    return response.status(401).json({ error: 'token invalid or missing. ' });
   }
+
   const user = await User.findById(decodedToken.id);
-  const blog = await Blog.findById(id).populate("user", { id: 1 });
+  const blog = await Blog.findById(id).populate('user', { id: 1 });
+  console.log(blog);
   if (!user) {
     response.status(400).json({ error: "user doesn't exist." });
   }
-  if (user._id.toString() !== blog.user.id) {
+  if (user._id.toString() !== blog.user.id.toString()) {
     response.status(401).json({
-      error: "no authorized for do that.",
+      error: 'no authorized for do that.',
       user: user._id,
       blogUser: blog.user.id,
     });
